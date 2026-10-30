@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#2463d8"><title>تقویم شمسی - اضافه‌کاری</title>
+<style>
+:root{font-family:Tahoma,"Noto Sans Arabic",sans-serif;color:#202938;background:#f4f6fa}*{box-sizing:border-box}body{margin:0;max-width:760px;margin-inline:auto;background:#fff;min-height:100vh}.top{background:#2463d8;color:#fff;padding:18px 16px 14px}.top h1{font-size:21px;margin:0 0 6px}.top p{margin:0;font-size:12px;opacity:.9}.monthbar{display:flex;align-items:center;justify-content:space-between;background:#eaf0ff;margin:12px;border-radius:12px;padding:7px}.monthbar button,.actions button{border:0;border-radius:9px;padding:10px 13px;font-size:16px;background:#fff;color:#244b91}.monthbar strong{font-size:17px;color:#173a79}.hint{font-size:12px;color:#687386;margin:0 13px 10px;line-height:1.8}.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:0 8px}.weekday{background:#eaf0ff;color:#244b91;text-align:center;padding:8px 0;border-radius:6px;font-size:12px;font-weight:bold}.day{border:1px solid #dfe5ef;border-radius:7px;min-width:0;padding:4px 3px 5px;min-height:69px;background:#fff}.daynum{text-align:center;font-size:13px;font-weight:bold;color:#244b91;margin:0 0 5px}.day input{width:100%;min-width:0;border:1px solid #d8deea;border-radius:5px;padding:6px 2px;text-align:center;font:12px Tahoma,sans-serif;background:#fbfcff;color:#202938;outline:none}.day input:focus{border-color:#2463d8;background:#fff;box-shadow:0 0 0 1px #2463d8}.sum{margin:14px 12px 10px;padding:15px;border:1px solid #c6d8ff;background:#eaf0ff;border-radius:13px}.sumtitle{font-weight:bold;color:#173a79;font-size:15px}.sumvalue{text-align:center;font-size:27px;font-weight:bold;color:#1554c0;padding:10px}.sum small{display:block;color:#59677d;line-height:1.8;font-size:11px}.actions{display:flex;gap:8px;padding:0 12px 12px}.actions button{flex:1;border:1px solid #d7dfec;font-size:13px;color:#38475d}.status{text-align:center;min-height:20px;font-size:11px;color:#287548;padding:0 10px 12px}.foot{text-align:center;color:#7c8492;font-size:10px;padding:8px 10px 20px}@media(min-width:500px){.calendar{gap:7px;padding:0 14px}.day{min-height:78px;padding:7px}.day input{font-size:13px;padding:8px 2px}}
+</style></head><body>
+<header class="top"><h1>تقویم شمسی</h1><p>ثبت روزانه و محاسبه ساعت اضافه‌کاری</p></header>
+<div class="monthbar"><button id="prev" aria-label="ماه قبل">›</button><strong id="monthTitle"></strong><button id="next" aria-label="ماه بعد">‹</button></div>
+<p class="hint">در کادر هر روز عدد، کلمه یا متن کوتاه بنویسید. اطلاعات به‌صورت خودکار روی همین دستگاه ذخیره می‌شود.</p>
+<div id="calendar" class="calendar"></div>
+<section class="sum"><div class="sumtitle">مجموع ساعت اضافه کاری</div><div class="sumvalue" id="sum">۰</div><small>فقط کادرهایی که تمام محتوای آن‌ها عدد است در جمع حساب می‌شوند. با اصلاح یا پاک‌کردن مقدار، مجموع همان لحظه دوباره محاسبه می‌شود. متن‌ها نادیده گرفته می‌شوند.</small></section>
+<div class="actions"><button id="clearMonth">پاک کردن اطلاعات این ماه</button><button id="export">پشتیبان‌گیری از اطلاعات</button><input id="importFile" type="file" accept="application/json" hidden></div><div class="status" id="status" aria-live="polite"></div><div class="foot">تقویم شمسی · اطلاعات فقط در حافظه همین دستگاه ذخیره می‌شود.</div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);const digits='۰۱۲۳۴۵۶۷۸۹';
+const faNum=n=>String(n).replace(/\d/g,d=>digits[+d]);
+const normalize=s=>String(s).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/٫/g,'.').trim();
+const fmt=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric',timeZone:'UTC'});
+function jalaliParts(date){let a={};for(const p of fmt.formatToParts(date))if(p.type!=='literal')a[p.type]=Number(p.value);return {y:a.year,m:a.month,d:a.day};}
+const dateCache=new Map();
+function jalaliToDate(y,m,d){
+ const k=`${y}-${m}-${d}`;if(dateCache.has(k))return new Date(dateCache.get(k));
+ // Search a generous Gregorian range and verify every candidate with the Persian calendar implementation.
+ const start=Date.UTC(y+620,0,1),end=Date.UTC(y+623,0,1);
+ for(let t=start;t<end;t+=86400000){const dt=new Date(t),p=jalaliParts(dt);if(p.y===y&&p.m===m&&p.d===d){dateCache.set(k,t);return dt;}}
+ throw Error('تاریخ شمسی قابل محاسبه نیست: '+k);
+}
+function monthDays(y,m){let n=0;while(n<32){try{jalaliToDate(y,m,n+1);n++;}catch(e){break}}return n;}
+const names=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];const weekdays=['ش','ی','د','س','چ','پ','ج'];
+let current=jalaliParts(new Date());let year=current.y,month=current.m;let data={};try{data=JSON.parse(localStorage.getItem('jalaliOvertimeDataV1')||'{}')}catch(e){data={}}
+const key=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+function readSum(y,m){let total=0;for(let d=1;d<=monthDays(y,m);d++){let raw=data[key(y,m,d)];if(typeof raw!=='string')continue;let v=normalize(raw);if(v!==''&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v)){let n=Number(v);if(Number.isFinite(n))total+=n;}}return total;}
+function persist(){try{localStorage.setItem('jalaliOvertimeDataV1',JSON.stringify(data));$('status').textContent='ذخیره شد';}catch(e){$('status').textContent='ذخیره‌سازی انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.';}}
+function render(){ $('monthTitle').textContent=names[month-1]+' '+faNum(year);const cal=$('calendar');cal.replaceChildren();weekdays.forEach(w=>{let el=document.createElement('div');el.className='weekday';el.textContent=w;cal.append(el)});let first=jalaliToDate(year,month,1).getUTCDay(); // Sunday=0; Persian week begins Saturday
+ let offset=(first+1)%7;for(let i=0;i<offset;i++){let blank=document.createElement('div');cal.append(blank)}
+ let count=monthDays(year,month);for(let d=1;d<=count;d++){let cell=document.createElement('div');cell.className='day';let num=document.createElement('div');num.className='daynum';num.textContent=faNum(d);let input=document.createElement('input');input.type='text';input.autocomplete='off';input.maxLength=80;input.placeholder='…';input.setAttribute('aria-label',`یادداشت روز ${d}`);input.value=data[key(year,month,d)]||'';input.addEventListener('input',()=>{data[key(year,month,d)]=input.value;persist();updateSum()});cell.append(num,input);cal.append(cell)}updateSum();}
+function updateSum(){let n=readSum(year,month);$('sum').textContent=faNum(Number(n.toFixed(4)).toString());}
+function shift(delta){month+=delta;if(month<1){month=12;year--}if(month>12){month=1;year++}render()}
+$('prev').addEventListener('click',()=>shift(-1));$('next').addEventListener('click',()=>shift(1));$('clearMonth').addEventListener('click',()=>{if(!confirm('تمام نوشته‌های این ماه پاک شوند؟'))return;for(let d=1;d<=monthDays(year,month);d++)delete data[key(year,month,d)];persist();render()});
+$('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'jalaliOvertimeBackupV1',data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup-taghvim-shamsi.json';a.click();URL.revokeObjectURL(a.href);});
+$('importFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{let obj=JSON.parse(await f.text());if(!obj.data||typeof obj.data!=='object')throw Error();data={...data,...obj.data};persist();render();$('status').textContent='نسخه پشتیبان بازیابی شد';}catch(err){alert('فایل پشتیبان معتبر نیست.')}e.target.value='';});
+render();
+})();
+</script></body></html>
